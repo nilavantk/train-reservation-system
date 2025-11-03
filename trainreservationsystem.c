@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <time.h>   // For date and time
+#include <time.h>    // For date and time
 #define MAX_SEATS 5
 #define MAX_QUEUE 5
 #define MAX_STATIONS 10
@@ -37,7 +37,7 @@ void loadFromFile();
 void shortestRoute();  // new module
 int minDistance(int dist[], int visited[]);
 
-// --------------------------- MAIN ------------------------------
+// --------------------------- MAIN (Graph Correction Applied Here) ------------------------------
 int main() {
     int choice;
     loadFromFile();  // Load previous bookings
@@ -50,14 +50,30 @@ int main() {
     strcpy(stations[3], "Mumbai");
     strcpy(stations[4], "Delhi");
 
+    // The initial adjacency matrix (Note: This is now symmetric/undirected for all routes)
+    // Indexes: 0=Chennai, 1=Bangalore, 2=Hyderabad, 3=Mumbai, 4=Delhi
     int sampleGraph[5][5] = {
-        {0, 350, 520, 0, 0},
-        {350, 0, 500, 980, 0},
-        {520, 500, 0, 700, 1100},
-        {0, 980, 700, 0, 1200},
-        {0, 0, 1100, 1200, 0}
+        // C  B  H  M  D
+        {0, 350, 520, 0, 0},     // 0: Chennai
+        {350, 0, 500, 980, 0},    // 1: Bangalore
+        {520, 500, 0, 700, 1100}, // 2: Hyderabad
+        {0, 980, 700, 0, 1200},   // 3: Mumbai
+        {0, 0, 1100, 1200, 0}     // 4: Delhi
     };
-    memcpy(graph, sampleGraph, sizeof(sampleGraph));
+    
+    // FIX: Ensure the graph is undirected by copying the upper triangle to the lower triangle
+    // This makes sure if A->B has a distance, B->A has the same distance.
+    int i, j;
+    for(i = 0; i < stationCount; i++) {
+        for(j = 0; j < stationCount; j++) {
+            if (sampleGraph[i][j] != 0 && i != j) {
+                graph[i][j] = sampleGraph[i][j];
+                graph[j][i] = sampleGraph[i][j]; // Make it symmetric (undirected)
+            } else {
+                graph[i][j] = sampleGraph[i][j]; // Handles 0-to-self (0) and disconnected (0)
+            }
+        }
+    }
 
     while (1) {
         printf("\n=== Train Reservation System ===\n");
@@ -77,6 +93,7 @@ int main() {
             case 4: shortestRoute(); break;
             case 5:
                 printf("Exiting system...\n");
+                saveToFile();
                 exit(0);
             default:
                 printf("Invalid choice! Try again.\n");
@@ -153,11 +170,11 @@ void cancelTicket() {
     if (!found) printf("Passenger ID not found.\n");
 }
 
-// --------------------------- DISPLAY MODULE (Alternative Clean Format) ------------------------------
+// --------------------------- DISPLAY MODULE ------------------------------
 
 void displayStatus() {
     printf("\n\n========================================================\n");
-    printf("                  TRAIN RESERVATION STATUS              \n");
+    printf("                       TRAIN RESERVATION STATUS          \n");
     printf("========================================================\n");
 
     // Display current date and time
@@ -166,7 +183,6 @@ void displayStatus() {
     printf("Last Updated: %s", ctime(&now));
 
     // Sort booked passengers by seat ID (simple Bubble Sort)
-    // ... (sorting code remains the same) ...
     int i, j;
     for (i = 0; i < seatCount - 1; i++) {
         for (j = 0; j < seatCount - i - 1; j++) {
@@ -179,7 +195,7 @@ void displayStatus() {
     }
 
 	printf("\n--------------------------------------------------------");
-    printf("\n                Confirmed Bookings                    \n");
+    printf("\n                 Confirmed Bookings                     \n");
     printf("--------------------------------------------------------\n");
     // Print header with spacing
     printf("%-6s %-4s %-20s %-12s %-12s\n", "SEAT", "ID", "NAME", "FROM", "TO");
@@ -195,7 +211,7 @@ void displayStatus() {
         }
     }
 	printf("\n--------------------------------------------------------");
-    printf("\n                   Waiting List                        \n");
+    printf("\n                      Waiting List                      \n");
     printf("--------------------------------------------------------\n");
     // Print header with spacing
     printf("%-8s %-4s %-20s %-12s %-12s\n", "POSITION", "ID", "NAME", "FROM", "TO");
@@ -271,26 +287,43 @@ void shortestRoute() {
     int src, dest;
     printf("\nAvailable Stations:\n");
     int i;
-    for (i = 1; i < stationCount; i++)
-        printf("%d. %s\n", i, stations[i]);
+    // Display all stations starting the numbering from 1 (i+1)
+    for (i = 0; i < stationCount; i++)
+        printf("%d. %s\n", i+1, stations[i]);
 
     printf("Enter Source Station Number: ");
     scanf("%d", &src);
     printf("Enter Destination Station Number: ");
     scanf("%d", &dest);
-	int count,v;
+    
+    // Convert user's 1-based input to 0-based array index
+    src = src - 1;
+    dest = dest - 1;
+
+    // Input validation (optional, but good practice)
+    if (src < 0 || src >= stationCount || dest < 0 || dest >= stationCount) {
+        printf("\nError: Invalid station number entered.\n");
+        return;
+    }
+    
+    // Dijkstra's Algorithm implementation
+    int count,v;
     int dist[MAX_STATIONS];
     int visited[MAX_STATIONS] = {0};
     int prev[MAX_STATIONS];
-  
+	
     for (i = 0; i < stationCount; i++) {
         dist[i] = INT_MAX;
         prev[i] = -1;
     }
+    
     dist[src] = 0;
 
     for (count = 0; count < stationCount - 1; count++) {
         int u = minDistance(dist, visited);
+        
+        if (u == -1) break; 
+        
         visited[u] = 1;
 
         for (v = 0; v < stationCount; v++) {
@@ -300,6 +333,13 @@ void shortestRoute() {
                 prev[v] = u;
             }
         }
+    }
+
+    // Check if destination is reachable
+    if (dist[dest] == INT_MAX) {
+        printf("\nShortest Distance from %s to %s: Route not found (disconnected).\n", 
+               stations[src], stations[dest]);
+        return;
     }
 
     printf("\nShortest Distance from %s to %s = %d km\n",
@@ -330,4 +370,3 @@ int minDistance(int dist[], int visited[]) {
     }
     return min_index;
 }
-
