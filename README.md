@@ -7,7 +7,7 @@ The **Train Reservation System** is a console-based C program designed to simpli
 
 ### 🎯 Features
 - **Seat Booking:** Allows passengers to reserve seats dynamically until capacity is full.  
-- Waiting List Management:** Automatically queues passengers when seats are unavailable.  
+- **Waiting List Management:** Automatically queues passengers when seats are unavailable.  
 - **Cancellation & Reallocation:** Reassigns cancelled seats to waiting passengers.  
 - **Passenger Data Handling:** Stores details like ID, name, source, and destination.  
 - **Shortest Route Suggestion:** Finds the minimal travel route between two stations.  
